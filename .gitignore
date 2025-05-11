@@ -1,0 +1,63 @@
+# === Build outputs ===
+*.obj
+*.exe
+*.pdb
+*.ilk
+*.ipch
+*.iobj
+*.idb
+*.log
+*.tlog
+*.lastbuildstate
+*.sdf
+*.VC.db
+*.VC.opendb
+*.user
+*.suo
+*.cache
+*.ncb
+*.aps
+*.opensdf
+*.vspscc
+*.vssscc
+*.vssscc
+
+# === Project settings ===
+*.vcxproj.user
+*.vscode/
+*.vs/
+*.vsscc
+*.sln.docstates
+*.db-shm
+*.db-wal
+
+# === Intermediate files ===
+*.bak
+*.tmp
+*.recipe
+*.json
+*.tlog
+*.obj
+*.pch
+*.res
+*.dep
+*.class
+
+# === Other ===
+*.vsix
+*.vsidx
+*.db
+*.ipdb
+*.iobj
+*.exp
+*.lib
+*.manifest
+*.dll
+
+# === OS-specific ===
+Thumbs.db
+.DS_Store
+
+# === ZIP & Archive ===
+*.zip
+*.rar
