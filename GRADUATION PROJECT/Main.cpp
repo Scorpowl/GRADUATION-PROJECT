@@ -258,9 +258,36 @@ void LoadData_Clicked() {
     else {
         if (hMLE_HWND_global) ICG_printf("Veri yukleme basarisiz!\n");
     }
+    if (model_global && hMLE_HWND_global) { // model_global ve pencere oluþturulduysa
+        ICG_printf("--- X_data_global (ilk 3 satir) ---\n");
+        for (long long r = 1; r <= X_data_global.Y() && r <= 3; ++r) {
+            for (long long c = 1; c <= X_data_global.X(); ++c) {
+                ICG_printf("%f ", X_data_global.D(r, c));
+            }
+            ICG_printf("\n");
+        }
+        ICG_printf("Boyutlar: %lld x %lld\n", X_data_global.Y(), X_data_global.X());
+
+        ICG_printf("--- y_data_global (ilk 3 satir) ---\n");
+        for (long long r = 1; r <= y_data_global.Y() && r <= 3; ++r) {
+            ICG_printf("%f\n", y_data_global.D(r, 1)); // y_data_global tek sütunlu varsayýlýyor
+        }
+        ICG_printf("Boyutlar: %lld x %lld\n", y_data_global.Y(), y_data_global.X());
+    }
 }
 
 void TrainModel_Clicked() {
+    // TrainModel_Clicked() fonksiyonunun baþýnda
+    if (model_global && hMLE_HWND_global) {
+        ICG_printf("--- Baslangic Agirliklari (weights) ---\n");
+        if (model_global->weights.Y() > 0 && model_global->weights.X() > 0) { // Matris boþ deðilse
+            DisplayMatrix(model_global->weights); // veya döngüyle yazdýr
+        }
+        else {
+            ICG_printf("Agirliklar henuz baslatilmadi veya boyutsuz.\n");
+        }
+        ICG_printf("Baslangic Bias: %f\n", model_global->bias);
+    }
     if (!model_global || X_data_global.Y() == 0 || y_data_global.Y() == 0) {
         if (hMLE_HWND_global) ICG_printf("Lutfen once veriyi yukleyin!\n");
         return;
