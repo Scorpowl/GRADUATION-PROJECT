@@ -142,8 +142,8 @@ bool load_csv_to_icbytes(const std::string& filename, ICBYTES& matrix, long long
         return false;
     }
 
-    if (CreateMatrix(matrix, out_rows, out_cols, ICB_DOUBLE) != 0) {
-        if (hMLE_HWND_global) ICG_printf("Hata: CreateMatrix basarisiz oldu (%lldx%lld).\n", out_rows, out_cols);
+    if (CreateMatrix(matrix, out_cols, out_rows, ICB_DOUBLE) != 0) {
+        if (hMLE_HWND_global) ICG_printf("Hata: CreateMatrix basarisiz oldu (sutun:%lld, satir:%lld).\n", out_cols, out_rows);
         return false;
     }
 
