@@ -181,9 +181,51 @@ void TrainModel()
     ICG_printf(MLE, "\n");
 }
 
-void Predict() { /* ... Önceki kodla ayný, þimdilik boþ ... */
-    ICG_printf(MLE, "Tahmin Fonksiyonu Henuz Yazilmadi.\n");
-    ICG_printf(MLE, "--- Adim 3: Dogruluk Hesaplama ---\n");
+/**
+ * @brief "Tahmin Et (Eðitim Verisi)" butonuna basýldýðýnda çalýþýr.
+ * BU FONKSÝYON DOLDURULDU
+ */
+void Predict()
+{
+    if (theta.Y() == 0) { // theta matrisinin satýr sayýsýný kontrol et
+        ICG_printf(MLE, "HATA: Once modeli egitmelisiniz!\n");
+        return;
+    }
+
+    ICG_printf(MLE, "\n--- Tahmin ve Dogruluk Hesaplama Baslatildi ---\n");
+
+    // 1. Olasýlýklarý Hesapla: h = sigmoid(X * theta)
+    ICBYTES z, h;
+    z.dot(X_train, theta);
+    Sigmoid(z, h); // h matrisi artýk her örnek için 0 ile 1 arasýnda bir olasýlýk içeriyor
+
+    // 2. Olasýlýklarý Sýnýflara (0 veya 1) Dönüþtür
+    long long N = X_train.Y(); // Toplam örnek sayýsý
+    ICBYTES predictions;
+    CreateMatrix(predictions, 1, N, ICB_DOUBLE); // Tahminleri saklamak için yeni bir matris
+
+    for (long long i = 1; i <= N; ++i) {
+        if (h.D(1, i) >= 0.5) {
+            predictions.D(1, i) = 1.0;
+        }
+        else {
+            predictions.D(1, i) = 0.0;
+        }
+    }
+
+    // 3. Doðruluk Oranýný Hesapla
+    double correct_count = 0;
+    for (long long i = 1; i <= N; ++i) {
+        // Eðer tahmin edilen deðer, gerçek deðerle aynýysa sayacý artýr
+        if (predictions.D(1, i) == y_train.D(1, i)) {
+            correct_count++;
+        }
+    }
+
+    double accuracy = (correct_count / N) * 100.0;
+
+    ICG_printf(MLE, "Egitim verisi uzerindeki dogruluk orani: %%%.2f\n", accuracy);
+    ICG_printf(MLE, "(%lld ornekten %d tanesi dogru tahmin edildi.)\n\n", N, (int)correct_count);
 }
 
 void TestSumFunction() { /* ... Önceki kodla ayný ... */
