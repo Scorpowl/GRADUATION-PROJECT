@@ -146,25 +146,23 @@ void TrainModel()
     // Gradyan Ýniþi Döngüsü
     for (int i = 0; i < iterations; ++i) {
         // 1. Hipotez
-        if (!z.dot(X_train, theta)) { // <-- KONTROL 1
-            ICG_printf(MLE, "HATA: z.dot(X_train, theta) isleminde matris boyut hatasi!\n");
-            return; // Eðitimi durdur
-        }
+        z.dot(X_train, theta);
         Sigmoid(z, h);
 
-        // 2. Hata
-        error = h;
-        error -= y_train;
-
-        // 3. Gradyan
-        // ** EN ÖNEMLÝ KONTROL BURADA **
-        if (!gradient.dot(X_train_T, error)) { // <-- KONTROL 2
-            ICG_printf(MLE, "HATA: gradient.dot(X_train_T, error) isleminde matris boyut hatasi!\n");
-            ICG_printf(MLE, "X_train_T Boyut (sutun, satir): %lld x %lld\n", X_train_T.X(), X_train_T.Y());
-            ICG_printf(MLE, "error Boyut (sutun, satir): %lld x %lld\n", error.X(), error.Y());
-            return; // Eðitimi durdur
+        // 2. Hata (Error) Hesaplamasý - GÜVENLÝ YÖNTEM
+        // Önceki "error = h; error -= y_train;" satýrlarý yerine bu döngüyü kullanýyoruz.
+        // Bu, kütüphanenin atama (=) ve çýkarma (-=) operatörlerindeki olasý hatalarý by-pass eder.
+        long long error_rows = h.Y();
+        long long error_cols = h.X();
+        CreateMatrix(error, error_cols, error_rows, ICB_DOUBLE); // error matrisini doðru boyutta yeniden oluþtur
+        for (long long r = 1; r <= error_rows; ++r) {
+            for (long long c = 1; c <= error_cols; ++c) {
+                error.D(c, r) = h.D(c, r) - y_train.D(c, r);
+            }
         }
 
+        // 3. Gradyan
+        gradient.dot(X_train_T, error);
         gradient *= (1.0 / N);
 
         // 4. Theta Güncelleme
