@@ -1,14 +1,8 @@
 // ICBYTES ile Lojistik Regresyon Projesi
 // Adým 1: Arayüz Kurulumu ve Veri Yükleme
-// Yazan: Gemini (Google AI) & Proje Sahibi
 
 #include "ic_media.h"
 #include "icbytes.h"
-
-// ICBYTES ile Lojistik Regresyon Projesi
-// Final Sürümü
-// Yazan: Gemini (Google AI) & Proje Sahibi
-
 #include "icb_gui.h"
 #include <fstream>
 #include <sstream>
@@ -23,12 +17,12 @@ ICBYTES X_train;
 ICBYTES y_train;
 ICBYTES theta;
 double learning_rate = 0.01;
-int iterations = 1500; // Veri seti büyüdüðü için iterasyon sayýsýný biraz artýrabiliriz.
+int iterations = 1500; // Veri seti büyüdüðü için iterasyon sayýsýný azaltýp artýrabiliriz.
 
 // --- Yardýmcý Fonksiyonlar ---
 
 /**
- * @brief Bir CSV dosyasýný okuyup içeriðini bir ICBYTES matrisine aktarýr.
+    Bir CSV dosyasýný okuyup içeriðini bir ICBYTES matrisine aktarýr.
  */
 bool ReadCSVtoICBYTES(const std::string& filename, ICBYTES& matrix) {
     std::ifstream file(filename);
@@ -71,7 +65,7 @@ bool ReadCSVtoICBYTES(const std::string& filename, ICBYTES& matrix) {
 }
 
 /**
- * @brief Lojistik regresyon için yapay bir veri seti oluþturur, karýþtýrýr ve
+ * Lojistik regresyon için yapay bir veri seti oluþturur, karýþtýrýr ve
  * eðitim/test olarak ayýrýp CSV dosyalarýna kaydeder.
  */
 void GenerateAndSaveData()
@@ -134,7 +128,7 @@ void GenerateAndSaveData()
 }
 
 /**
- * @brief Bir matrisin her elemanýna sigmoid fonksiyonunu uygular.
+ * Bir matrisin her elemanýna sigmoid fonksiyonunu uygular.
  */
 void Sigmoid(ICBYTES& z, ICBYTES& result) {
     long long rows = z.Y();
@@ -150,7 +144,7 @@ void Sigmoid(ICBYTES& z, ICBYTES& result) {
 }
 
 /**
- * @brief Lojistik regresyon için maliyet (cost) deðerini hesaplar.
+ * Lojistik regresyon için maliyet (cost) deðerini hesaplar.
  */
 double ComputeCost(ICBYTES& X, ICBYTES& y, ICBYTES& theta) {
     long long N = X.Y();
@@ -171,7 +165,7 @@ double ComputeCost(ICBYTES& X, ICBYTES& y, ICBYTES& theta) {
 // --- Buton Fonksiyonlarý (Callbacks) ---
 
 /**
- * @brief "Veri Yükle" butonu, eðitim verilerini yükler.
+ *  "Veri Yükle" butonu, eðitim verilerini yükler.
  */
 void LoadData()
 {
@@ -217,7 +211,7 @@ void LoadData()
 }
 
 /**
- * @brief Modeli eðitir.
+ *  Modeli eðitir.
  */
 void TrainModel()
 {
@@ -271,7 +265,7 @@ void TrainModel()
 }
 
 /**
- * @brief Eðitim verisi üzerinde tahmin yapar ve doðruluðu ölçer.
+ *  Eðitim verisi üzerinde tahmin yapar ve doðruluðu ölçer.
  */
 void PredictOnTrainData()
 {
@@ -301,7 +295,7 @@ void PredictOnTrainData()
 }
 
 /**
- * @brief Test verisi üzerinde tahmin yapar ve doðruluðu ölçer.
+ * Test verisi üzerinde tahmin yapar ve doðruluðu ölçer.
  */
 void PredictOnTestData()
 {
