@@ -1,6 +1,6 @@
 // ICBYTES ile Lojistik Regresyon Projesi
 // Adým 1: Arayüz Kurulumu ve Veri Yükleme
-
+#define NOMINMAX
 #include "ic_media.h"
 #include "icbytes.h"
 #include "icb_gui.h"
@@ -10,12 +10,14 @@
 #include <vector>
 #include <cmath>
 #include <random>
-
+#include <algorithm>
 // --- Global Deðiþkenler ---
 int MLE;
 ICBYTES X_train;
 ICBYTES y_train;
 ICBYTES theta;
+ICBYTES canvas_gorsel;
+int FRM_VISUAL;
 double learning_rate = 0.01;
 int iterations = 1500; // Veri seti büyüdüðü için iterasyon sayýsýný azaltýp artýrabiliriz.
 
@@ -73,13 +75,22 @@ void GenerateAndSaveData()
     ICBYTES class0_features, class1_features;
     int samples_per_class = 100;
 
-    RandomNormal(2.0, 1.5, class0_features, 2, samples_per_class);
-    RandomNormal(7.0, 1.5, class1_features, 2, samples_per_class);
+    // DEÐÝÞÝKLÝK: Veri bulutlarýný birbirine yaklaþtýrýp daðýlýmlarýný artýrýyoruz.
+    // Böylece daha zor, iç içe geçmiþ bir problem yaratýyoruz.
+    double center0 = 3.5;
+    double center1 = 6.5;
+    double stdev = 2.5; // Standart sapmayý 1.5'ten 2.5'e çýkardýk.
 
+    // Sýnýf 0: Ortalamasý (3.5, 3.5) olan bir veri bulutu oluþtur
+    RandomNormal(center0, stdev, class0_features, 2, samples_per_class);
+
+    // Sýnýf 1: Ortalamasý (6.5, 6.5) olan bir veri bulutu oluþtur
+    RandomNormal(center1, stdev, class1_features, 2, samples_per_class);
+
+    // Fonksiyonun geri kalaný (birleþtirme, karýþtýrma, dosyalara yazma) ayný...
     ICBYTES all_features, all_labels;
     CreateMatrix(all_features, 2, samples_per_class * 2, ICB_DOUBLE);
     CreateMatrix(all_labels, 1, samples_per_class * 2, ICB_DOUBLE);
-
     for (int i = 1; i <= samples_per_class; ++i) {
         all_features.D(1, i) = class0_features.D(1, i);
         all_features.D(2, i) = class0_features.D(2, i);
@@ -90,7 +101,6 @@ void GenerateAndSaveData()
         all_features.D(2, i + samples_per_class) = class1_features.D(2, i);
         all_labels.D(1, i + samples_per_class) = 1.0;
     }
-
     std::mt19937 rng(std::random_device{}());
     for (int i = all_features.Y(); i > 1; --i) {
         std::uniform_int_distribution<int> dist(1, i);
@@ -100,14 +110,11 @@ void GenerateAndSaveData()
         }
         std::swap(all_labels.D(1, i), all_labels.D(1, j));
     }
-
     int train_size = (samples_per_class * 2) * 0.8;
-
     std::ofstream f_train("features_train.csv");
     std::ofstream l_train("labels_train.csv");
     std::ofstream f_test("features_test.csv");
     std::ofstream l_test("labels_test.csv");
-
     for (int i = 1; i <= all_features.Y(); ++i) {
         if (i <= train_size) {
             f_train << all_features.D(1, i) << "," << all_features.D(2, i) << "\n";
@@ -120,11 +127,7 @@ void GenerateAndSaveData()
     }
     f_train.close(); l_train.close(); f_test.close(); l_test.close();
 
-    ICG_printf(MLE, "Veri seti olusturuldu ve dosyalara yazildi:\n");
-    ICG_printf(MLE, "- features_train.csv (%d ornek)\n", train_size);
-    ICG_printf(MLE, "- labels_train.csv (%d ornek)\n", train_size);
-    ICG_printf(MLE, "- features_test.csv (%d ornek)\n", (samples_per_class * 2) - train_size);
-    ICG_printf(MLE, "- labels_test.csv (%d ornek)\n\n");
+    ICG_printf(MLE, "DAHA ZOR bir veri seti olusturuldu ve dosyalara yazildi.\n");
 }
 
 /**
@@ -368,6 +371,62 @@ void PredictOnTrainData()
     ICG_printf(MLE, "(%lld ornekten %d tanesi dogru tahmin edildi.)\n\n", N, (int)correct_count);
 }
 
+void VisualizeResults()
+{
+    if (theta.Y() == 0) {
+        ICG_printf(MLE, "HATA: Once modeli egitmelisiniz!\n");
+        return;
+    }
+
+    // 1. Test verilerini yükle (Bu kýsým ayný)
+    ICBYTES X_test_raw, y_test;
+    // ... (Test verisi yükleme ve tahmin yapma kodlarý burada, öncekiyle ayný) ...
+    if (!ReadCSVtoICBYTES("features_test.csv", X_test_raw) || !ReadCSVtoICBYTES("labels_test.csv", y_test)) { /*...*/ return; }
+    long long N_test = X_test_raw.Y();
+    ICBYTES X_test_with_bias;
+    CreateMatrix(X_test_with_bias, X_test_raw.X() + 1, N_test, ICB_DOUBLE);
+    for (long long i = 1; i <= N_test; ++i) X_test_with_bias.D(1, i) = 1.0;
+    for (long long r = 1; r <= N_test; ++r) { for (long long c = 1; c <= X_test_raw.X(); ++c) { X_test_with_bias.D(c + 1, r) = X_test_raw.D(c, r); } }
+    ICBYTES z_test, h_test;
+    z_test.dot(X_test_with_bias, theta);
+    Sigmoid(z_test, h_test);
+    double min_x1 = 1e9, max_x1 = -1e9, min_x2 = 1e9, max_x2 = -1e9;
+    for (int i = 1; i <= N_test; ++i) { min_x1 = std::min(min_x1, X_test_raw.D(1, i)); max_x1 = std::max(max_x1, X_test_raw.D(1, i)); min_x2 = std::min(min_x2, X_test_raw.D(2, i)); max_x2 = std::max(max_x2, X_test_raw.D(2, i)); }
+
+    // 3. Çizim için canvas oluþtur
+    // DEÐÝÞÝKLÝK: Canvas boyutunu yeni çerçeveye uyacak þekilde ayarlýyoruz.
+    const int canvas_width = 500;
+    const int canvas_height = 570;
+    CreateImage(canvas_gorsel, canvas_width, canvas_height, ICB_UINT);
+    canvas_gorsel = 0x1a1a1a;
+
+    // ... (Ölçekleme ve çizim kodlarý ayný, sadece canvas boyut deðiþkenlerini kullanýyor) ...
+    for (int i = 1; i <= N_test; ++i) {
+        double x1 = X_test_raw.D(1, i);
+        double x2 = X_test_raw.D(2, i);
+        int px = (int)(((x1 - min_x1) / (max_x1 - min_x1)) * (canvas_width - 20)) + 10;
+        int py = canvas_height - ((int)(((x2 - min_x2) / (max_x2 - min_x2)) * (canvas_height - 20)) + 10);
+        double prediction = (h_test.D(1, i) >= 0.5) ? 1.0 : 0.0;
+        double actual = y_test.D(1, i);
+        int color;
+        if (prediction == actual) { color = (actual == 1.0) ? 0x00FF00 : 0xFF0000; }
+        else { color = 0xFFFF00; }
+        FillCircle(canvas_gorsel, px, py, 4, color);
+        Circle(canvas_gorsel, px, py, 5, 0xFFFFFF);
+    }
+    double th0 = theta.D(1, 1), th1 = theta.D(1, 2), th2 = theta.D(1, 3);
+    double y1_calc = (-th0 - th1 * min_x1) / th2;
+    double y2_calc = (-th0 - th1 * max_x1) / th2;
+    int px1_line = 10;
+    int py1_line = canvas_height - ((int)(((y1_calc - min_x2) / (max_x2 - min_x2)) * (canvas_height - 20)) + 10);
+    int px2_line = canvas_width - 10;
+    int py2_line = canvas_height - ((int)(((y2_calc - min_x2) / (max_x2 - min_x2)) * (canvas_height - 20)) + 10);
+    Line(canvas_gorsel, px1_line, py1_line, px2_line, py2_line, 0xFFFFFF);
+
+    DisplayImage(FRM_VISUAL, canvas_gorsel);
+    ICG_printf(MLE, "Gorsellestirme tamamlandi.\nYesil: Sinif 1 (Dogru)\nKirmizi: Sinif 0 (Dogru)\nSari: Hatali Tahminler\n");
+}
+
 /**
  * Test verisi üzerinde tahmin yapar ve doðruluðu ölçer.
  */
@@ -429,16 +488,24 @@ void ICGUI_Create() {
 
 void ICGUI_main()
 {
-    // Butonlarý ve iþlevlerini tanýmla
-    ICG_Button(10, 10, 200, 30, "0. YENI VERI URET", GenerateAndSaveData);
-    ICG_Button(10, 50, 200, 30, "1. Egitim Verilerini Yukle", LoadData);
-    ICG_Button(10, 90, 200, 30, "2. Modeli Egit", TrainModel);
-    ICG_Button(10, 130, 200, 30, "3. Tahmin Et (Egitim Verisi)", PredictOnTrainData);
-    ICG_Button(10, 170, 200, 30, "4. Tahmin Et (TEST VERISI)", PredictOnTestData);
+    // --- Sol Panel: Kontrol Butonlarý ---
+    int button_x = 10;
+    int button_width = 200;
+    ICG_Button(button_x, 10, button_width, 30, "0. YENI VERI URET", GenerateAndSaveData);
+    ICG_Button(button_x, 50, button_width, 30, "1. Egitim Verilerini Yukle", LoadData);
+    ICG_Button(button_x, 90, button_width, 30, "2. Modeli Egit", TrainModel);
+    ICG_Button(button_x, 130, button_width, 30, "3. Analiz (Egitim Verisi)", PredictOnTrainData);
+    ICG_Button(button_x, 170, button_width, 30, "4. Analiz (Test Verisi)", PredictOnTestData);
+    ICG_Button(button_x, 210, button_width, 30, "5. Detayli Analiz (Confusion)", ShowConfusionMatrixAndMetrics);
+    ICG_Button(button_x, 250, button_width, 30, "6. SONUCLARI GORSELLESTIR", VisualizeResults);
 
-    ICG_Button(10, 210, 200, 30, "5. Detayli Analiz (Confusion)", ShowConfusionMatrixAndMetrics);
-    // Metin kutusunu oluþtur
-    MLE = ICG_MLEditSunken(220, 10, 800, 700, "", SCROLLBAR_V);
+    // --- Orta Panel: Metin ve Log Alaný ---
+    int mle_x = button_x + button_width + 10; // Butonlarýn saðýna yerleþtir
+    MLE = ICG_MLEditSunken(mle_x, 10, 350, 570, "", SCROLLBAR_V);
+
+    // --- Sað Panel: Görselleþtirme Alaný ---
+    int frame_x = mle_x + 350 + 10; // Metin alanýnýn saðýna yerleþtir
+    FRM_VISUAL = ICG_FrameSunken(frame_x, 10, 500, 570);
 
     ICG_printf(MLE, "Lojistik Regresyon Projesine Hos Geldiniz!\n\n");
     ICG_printf(MLE, "ADIM 0: Proje klasorunde egitim/test verileri yoksa 'YENI VERI URET' butonuna basarak olusturun.\n\n");
