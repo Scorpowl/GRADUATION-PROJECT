@@ -264,6 +264,80 @@ void TrainModel()
     ICG_printf(MLE, "\n");
 }
 
+void ShowConfusionMatrixAndMetrics()
+{
+    if (theta.Y() == 0) {
+        ICG_printf(MLE, "HATA: Once modeli egitmelisiniz!\n");
+        return;
+    }
+
+    ICG_printf(MLE, "\n--- DETAYLI TEST PERFORMANS ANALIZI ---\n");
+
+    ICBYTES X_test_raw, y_test;
+    if (!ReadCSVtoICBYTES("features_test.csv", X_test_raw) || !ReadCSVtoICBYTES("labels_test.csv", y_test)) {
+        ICG_printf(MLE, "HATA: Test .csv dosyalari okunamadi.\n");
+        return;
+    }
+
+    long long N_test = X_test_raw.Y();
+    long long M_test = X_test_raw.X();
+    ICBYTES X_test;
+    CreateMatrix(X_test, M_test + 1, N_test, ICB_DOUBLE);
+    for (long long i = 1; i <= N_test; ++i) X_test.D(1, i) = 1.0;
+    for (long long r = 1; r <= N_test; ++r) {
+        for (long long c = 1; c <= M_test; ++c) {
+            X_test.D(c + 1, r) = X_test_raw.D(c, r);
+        }
+    }
+
+    ICBYTES z_test, h_test;
+    z_test.dot(X_test, theta);
+    Sigmoid(z_test, h_test);
+
+    // Karýþýklýk matrisi için deðiþkenler
+    double TP = 0, TN = 0, FP = 0, FN = 0;
+
+    for (long long i = 1; i <= N_test; ++i) {
+        double prediction = (h_test.D(1, i) >= 0.5) ? 1.0 : 0.0;
+        double actual = y_test.D(1, i);
+
+        if (prediction == 1.0 && actual == 1.0) {
+            TP++; // Doðru Pozitif
+        }
+        else if (prediction == 0.0 && actual == 0.0) {
+            TN++; // Doðru Negatif
+        }
+        else if (prediction == 1.0 && actual == 0.0) {
+            FP++; // Yanlýþ Pozitif
+        }
+        else if (prediction == 0.0 && actual == 1.0) {
+            FN++; // Yanlýþ Negatif
+        }
+    }
+
+    // Karýþýklýk matrisini ICBYTES ile oluþtur ve ekrana bas
+    ICBYTES confusion_matrix;
+    CreateMatrix(confusion_matrix, 2, 2, ICB_DOUBLE);
+    confusion_matrix.D(1, 1) = TN; confusion_matrix.D(2, 1) = FP;
+    confusion_matrix.D(1, 2) = FN; confusion_matrix.D(2, 2) = TP;
+
+    ICG_printf(MLE, "Karýsýklýk Matrisi (Confusion Matrix):\n");
+    ICG_printf(MLE, "       Tahmin:0  Tahmin:1\n");
+    ICG_printf(MLE, "Gercek:0 [%.0f]      [%.0f]\n", TN, FP);
+    ICG_printf(MLE, "Gercek:1 [%.0f]      [%.0f]\n\n", FN, TP);
+
+    // Diðer metrikleri hesapla ve yazdýr
+    double accuracy = (TP + TN) / (TP + TN + FP + FN) * 100.0;
+    double precision = (TP + FP == 0) ? 0 : TP / (TP + FP);
+    double recall = (TP + FN == 0) ? 0 : TP / (TP + FN);
+    double f1_score = (precision + recall == 0) ? 0 : 2 * (precision * recall) / (precision + recall);
+
+    ICG_printf(MLE, "Dogruluk (Accuracy): %%%.2f\n", accuracy);
+    ICG_printf(MLE, "Kesinlik (Precision): %.2f\n", precision);
+    ICG_printf(MLE, "Duyarlilik (Recall/Sensitivity): %.2f\n", recall);
+    ICG_printf(MLE, "F1-Skoru: %.2f\n\n", f1_score);
+}
+
 /**
  *  Eðitim verisi üzerinde tahmin yapar ve doðruluðu ölçer.
  */
@@ -350,7 +424,7 @@ void PredictOnTestData()
 
 void ICGUI_Create() {
     ICG_MWTitle("ICBYTES ile Lojistik Regresyon");
-    ICG_MWSize(1100, 800); // Pencereyi biraz küçülttüm
+    ICG_MWSize(1100, 800); 
 }
 
 void ICGUI_main()
@@ -362,6 +436,7 @@ void ICGUI_main()
     ICG_Button(10, 130, 200, 30, "3. Tahmin Et (Egitim Verisi)", PredictOnTrainData);
     ICG_Button(10, 170, 200, 30, "4. Tahmin Et (TEST VERISI)", PredictOnTestData);
 
+    ICG_Button(10, 210, 200, 30, "5. Detayli Analiz (Confusion)", ShowConfusionMatrixAndMetrics);
     // Metin kutusunu oluþtur
     MLE = ICG_MLEditSunken(220, 10, 800, 700, "", SCROLLBAR_V);
 
