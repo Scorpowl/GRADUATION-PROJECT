@@ -13,6 +13,7 @@
 #include <algorithm>
 // --- Global Deðiþkenler ---
 int MLE;
+int RICH_REPORT;
 ICBYTES X_train;
 ICBYTES y_train;
 ICBYTES theta;
@@ -371,17 +372,23 @@ void PredictOnTrainData()
     ICG_printf(MLE, "(%lld ornekten %d tanesi dogru tahmin edildi.)\n\n", N, (int)correct_count);
 }
 
-void VisualizeResults()
+void CreateFinalReport()
 {
     if (theta.Y() == 0) {
         ICG_printf(MLE, "HATA: Once modeli egitmelisiniz!\n");
         return;
     }
 
-    // 1. Test verilerini yükle (Bu kýsým ayný)
+    // Rapor alanýný temizle
+    ICG_ClearText(RICH_REPORT);
+
     ICBYTES X_test_raw, y_test;
-    // ... (Test verisi yükleme ve tahmin yapma kodlarý burada, öncekiyle ayný) ...
-    if (!ReadCSVtoICBYTES("features_test.csv", X_test_raw) || !ReadCSVtoICBYTES("labels_test.csv", y_test)) { /*...*/ return; }
+    if (!ReadCSVtoICBYTES("features_test.csv", X_test_raw) || !ReadCSVtoICBYTES("labels_test.csv", y_test)) {
+        ICG_printf(MLE, "HATA: Test .csv dosyalari okunamadi.\n");
+        return;
+    }
+
+    // Tahminleri yap
     long long N_test = X_test_raw.Y();
     ICBYTES X_test_with_bias;
     CreateMatrix(X_test_with_bias, X_test_raw.X() + 1, N_test, ICB_DOUBLE);
@@ -390,41 +397,55 @@ void VisualizeResults()
     ICBYTES z_test, h_test;
     z_test.dot(X_test_with_bias, theta);
     Sigmoid(z_test, h_test);
-    double min_x1 = 1e9, max_x1 = -1e9, min_x2 = 1e9, max_x2 = -1e9;
-    for (int i = 1; i <= N_test; ++i) { min_x1 = std::min(min_x1, X_test_raw.D(1, i)); max_x1 = std::max(max_x1, X_test_raw.D(1, i)); min_x2 = std::min(min_x2, X_test_raw.D(2, i)); max_x2 = std::max(max_x2, X_test_raw.D(2, i)); }
 
-    // 3. Çizim için canvas oluþtur
-    // DEÐÝÞÝKLÝK: Canvas boyutunu yeni çerçeveye uyacak þekilde ayarlýyoruz.
-    const int canvas_width = 500;
-    const int canvas_height = 570;
-    CreateImage(canvas_gorsel, canvas_width, canvas_height, ICB_UINT);
-    canvas_gorsel = 0x1a1a1a;
-
-    // ... (Ölçekleme ve çizim kodlarý ayný, sadece canvas boyut deðiþkenlerini kullanýyor) ...
-    for (int i = 1; i <= N_test; ++i) {
-        double x1 = X_test_raw.D(1, i);
-        double x2 = X_test_raw.D(2, i);
-        int px = (int)(((x1 - min_x1) / (max_x1 - min_x1)) * (canvas_width - 20)) + 10;
-        int py = canvas_height - ((int)(((x2 - min_x2) / (max_x2 - min_x2)) * (canvas_height - 20)) + 10);
+    // Karýþýklýk matrisi deðerlerini hesapla
+    double TP = 0, TN = 0, FP = 0, FN = 0;
+    for (long long i = 1; i <= N_test; ++i) {
         double prediction = (h_test.D(1, i) >= 0.5) ? 1.0 : 0.0;
         double actual = y_test.D(1, i);
-        int color;
-        if (prediction == actual) { color = (actual == 1.0) ? 0x00FF00 : 0xFF0000; }
-        else { color = 0xFFFF00; }
-        FillCircle(canvas_gorsel, px, py, 4, color);
-        Circle(canvas_gorsel, px, py, 5, 0xFFFFFF);
+        if (prediction == 1.0 && actual == 1.0) TP++;
+        else if (prediction == 0.0 && actual == 0.0) TN++;
+        else if (prediction == 1.0 && actual == 0.0) FP++;
+        else if (prediction == 0.0 && actual == 1.0) FN++;
     }
-    double th0 = theta.D(1, 1), th1 = theta.D(1, 2), th2 = theta.D(1, 3);
-    double y1_calc = (-th0 - th1 * min_x1) / th2;
-    double y2_calc = (-th0 - th1 * max_x1) / th2;
-    int px1_line = 10;
-    int py1_line = canvas_height - ((int)(((y1_calc - min_x2) / (max_x2 - min_x2)) * (canvas_height - 20)) + 10);
-    int px2_line = canvas_width - 10;
-    int py2_line = canvas_height - ((int)(((y2_calc - min_x2) / (max_x2 - min_x2)) * (canvas_height - 20)) + 10);
-    Line(canvas_gorsel, px1_line, py1_line, px2_line, py2_line, 0xFFFFFF);
 
-    DisplayImage(FRM_VISUAL, canvas_gorsel);
-    ICG_printf(MLE, "Gorsellestirme tamamlandi.\nYesil: Sinif 1 (Dogru)\nKirmizi: Sinif 0 (Dogru)\nSari: Hatali Tahminler\n");
+    // Metrikleri hesapla
+    double accuracy = (TP + TN) / (TP + TN + FP + FN) * 100.0;
+    double precision = (TP + FP == 0) ? 0 : TP / (TP + FP);
+    double recall = (TP + FN == 0) ? 0 : TP / (TP + FN);
+    double f1_score = (precision + recall == 0) ? 0 : 2 * (precision * recall) / (precision + recall);
+
+    // --- Raporu Zengin Metin Formatýnda Yazdýr ---
+    ICG_SetprintfFont("Verdana", 22);
+    ICG_SetprintfColor(0x00D090); // Açýk yeþil renk
+    ICG_SetprintfStyle(700, false, true); // Kalýn ve altý çizgili
+    ICG_printf(RICH_REPORT, "\tTEST SONUÇ RAPORU\n\n");
+
+    ICG_SetprintfFont("Consolas", 16);
+    ICG_SetprintfColor(0xFFFFFF); // Beyaz
+    ICG_SetprintfStyle(700, false, false); // Kalýn
+    ICG_printf(RICH_REPORT, "Karýsýklýk Matrisi (Confusion Matrix)\n");
+
+    ICG_SetprintfFont("Consolas", 14);
+    ICG_SetprintfStyle(400, false, false); // Normal
+    ICG_printf(RICH_REPORT, "--------------------------------------\n");
+    ICG_printf(RICH_REPORT, "\t\tTahmin: KALDI\tTahmin: GECTI\n");
+    ICG_printf(RICH_REPORT, "Gercek: KALDI\t   [ %.0f ]\t\t   [ %.0f ]\n", TN, FP);
+    ICG_printf(RICH_REPORT, "Gercek: GECTI\t   [ %.0f ]\t\t   [ %.0f ]\n", FN, TP);
+    ICG_printf(RICH_REPORT, "--------------------------------------\n\n");
+
+    ICG_SetprintfFont("Verdana", 16);
+    ICG_SetprintfStyle(700, false, false); // Kalýn
+    ICG_printf(RICH_REPORT, "Performans Metrikleri\n");
+
+    ICG_SetprintfFont("Verdana", 14);
+    ICG_SetprintfStyle(400, false, false); // Normal
+    ICG_printf(RICH_REPORT, "---------------------------------\n");
+    ICG_printf(RICH_REPORT, "Dogruluk (Accuracy)    : %%%.2f\n", accuracy);
+    ICG_printf(RICH_REPORT, "Kesinlik (Precision)   : %.2f\n", precision);
+    ICG_printf(RICH_REPORT, "Duyarlilik (Recall)    : %.2f\n", recall);
+    ICG_printf(RICH_REPORT, "F1-Skoru               : %.2f\n", f1_score);
+    ICG_printf(RICH_REPORT, "---------------------------------\n");
 }
 
 /**
@@ -488,24 +509,21 @@ void ICGUI_Create() {
 
 void ICGUI_main()
 {
-    // --- Sol Panel: Kontrol Butonlarý ---
     int button_x = 10;
     int button_width = 200;
-    ICG_Button(button_x, 10, button_width, 30, "0. YENI VERI URET", GenerateAndSaveData);
-    ICG_Button(button_x, 50, button_width, 30, "1. Egitim Verilerini Yukle", LoadData);
-    ICG_Button(button_x, 90, button_width, 30, "2. Modeli Egit", TrainModel);
-    ICG_Button(button_x, 130, button_width, 30, "3. Analiz (Egitim Verisi)", PredictOnTrainData);
-    ICG_Button(button_x, 170, button_width, 30, "4. Analiz (Test Verisi)", PredictOnTestData);
-    ICG_Button(button_x, 210, button_width, 30, "5. Detayli Analiz (Confusion)", ShowConfusionMatrixAndMetrics);
-    ICG_Button(button_x, 250, button_width, 30, "6. SONUCLARI GORSELLESTIR", VisualizeResults);
+    ICG_Button(button_x, 10, button_width, 30, "1. Verileri Yukle & Ayir", GenerateAndSaveData);
+    ICG_Button(button_x, 50, button_width, 30, "2. Modeli Egit", TrainModel);
 
-    // --- Orta Panel: Metin ve Log Alaný ---
-    int mle_x = button_x + button_width + 10; // Butonlarýn saðýna yerleþtir
-    MLE = ICG_MLEditSunken(mle_x, 10, 350, 570, "", SCROLLBAR_V);
+    // YENÝ DÜZEN: Butonlarýn adýný ve iþlevini birleþtirdim
+    ICG_Button(button_x, 90, button_width, 30, "3. SONUCLARI RAPORLA", CreateFinalReport);
 
-    // --- Sað Panel: Görselleþtirme Alaný ---
-    int frame_x = mle_x + 350 + 10; // Metin alanýnýn saðýna yerleþtir
-    FRM_VISUAL = ICG_FrameSunken(frame_x, 10, 500, 570);
+    int log_x = button_x + button_width + 10;
+    // Log ve iþlem adýmlarý için metin kutusu
+    MLE = ICG_MLEditSunken(log_x, 10, 600, 200, "", SCROLLBAR_V);
+
+    // Nihai raporun gösterileceði Zengin Metin Kutusu
+    RICH_REPORT = ICG_RichEditSunken(log_x, 220, 600, 210, "", SCROLLBAR_V);
+    ICG_SetRichColor(RICH_REPORT, 0x1a1a1a); // Koyu arkaplan
 
     ICG_printf(MLE, "Lojistik Regresyon Projesine Hos Geldiniz!\n\n");
     ICG_printf(MLE, "ADIM 0: Proje klasorunde egitim/test verileri yoksa 'YENI VERI URET' butonuna basarak olusturun.\n\n");
